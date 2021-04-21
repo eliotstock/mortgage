@@ -16,6 +16,8 @@ describe('LoanPool', function() {
     console.log("loanPool instance:");
     console.log(loanPool);
 
+    // Fails with:
+    //   TypeError: loanPool.connect(...).transfer is not a function
     await loanPool.connect(lender).transfer(loanAmount);
   });
 });
