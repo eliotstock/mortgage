@@ -1,0 +1,7 @@
+# Node.js
+node_modules
+# Note that package-lock.json should be committed
+
+# Hardhat files
+cache
+artifacts
