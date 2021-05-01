@@ -23,4 +23,8 @@ contract Mortgage {
         state = State.Applied;
     }
 
+    function approve() public {
+        state = State.Approved;
+    }
+
 }

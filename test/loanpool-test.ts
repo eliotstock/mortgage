@@ -67,13 +67,11 @@ describe('LoanPool', function() {
 
   it('Should allow only the owner to approve applied mortgages',
     async () => {
-    loanPool = loanPool.connect(borrower);
-    const applyTx = await loanPool.applyForMortgage(loanAmount);
+    const applyTx = await loanPool.connect(borrower)
+      .applyForMortgage(loanAmount);
 
     let applyReceipt: ContractReceipt = await applyTx.wait();
     const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
-    const Mortgage = await ethers.getContractFactory('Mortgage');
-    const mortgage = await Mortgage.attach(mortgageAddr);
 
     await expect(loanPool.connect(borrower).approveMortgage(mortgageAddr))
       .to.be.reverted;
@@ -81,7 +79,19 @@ describe('LoanPool', function() {
     await expect(loanPool.connect(lender).approveMortgage(mortgageAddr))
       .to.be.reverted;
 
-    await expect(loanPool.connect(owner).approveMortgage(mortgageAddr))
-      .to.be.ok;
+    const approveTx = await loanPool.connect(owner)
+      .approveMortgage(mortgageAddr);
+
+    let approveReceipt: ContractReceipt = await approveTx.wait();
+    // console.log(approveReceipt);
+    let approvedEvent = approveReceipt.events?.[0];
+    expect(approvedEvent).to.be.not.null;
+    expect(approvedEvent?.event).to.be.equals('MortgageApproved');
+
+    const Mortgage = await ethers.getContractFactory('Mortgage');
+    const mortgage = await Mortgage.attach(mortgageAddr);
+
+    // 1: State.Approved
+    expect(await mortgage.state()).equals(1);
   })
 });

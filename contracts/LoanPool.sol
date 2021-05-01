@@ -27,6 +27,7 @@ contract LoanPool {
 
     event ReceivedFunds(address, uint);
     event NewMortgageApplication(Mortgage);
+    event MortgageApproved(Mortgage);
 
     constructor() {
         owner = msg.sender;
@@ -77,5 +78,10 @@ contract LoanPool {
 
     function approveMortgage(address mortgageAddress) external {
         require(msg.sender == owner, 'Owner only');
+        
+        Mortgage m = Mortgage(address(mortgageAddress));
+        m.approve();
+
+        emit MortgageApproved(m);
     }
 }
