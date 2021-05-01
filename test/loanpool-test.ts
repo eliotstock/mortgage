@@ -42,6 +42,8 @@ describe('LoanPool', function() {
     //   console.log('NewMortgageApplication event');
     // });
 
+    // Borrowers apply for mortgages
+    loanPool = loanPool.connect(borrower);
     const tx = await loanPool.applyForMortgage(loanAmount);
     expect(tx).to.not.be.null;
     // console.log("tx: ", tx);
@@ -62,4 +64,24 @@ describe('LoanPool', function() {
     // 0: State.Applied
     expect(await mortgage.state()).equals(0);
   });
+
+  it('Should allow only the owner to approve applied mortgages',
+    async () => {
+    loanPool = loanPool.connect(borrower);
+    const applyTx = await loanPool.applyForMortgage(loanAmount);
+
+    let applyReceipt: ContractReceipt = await applyTx.wait();
+    const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
+    const Mortgage = await ethers.getContractFactory('Mortgage');
+    const mortgage = await Mortgage.attach(mortgageAddr);
+
+    await expect(loanPool.connect(borrower).approveMortgage(mortgageAddr))
+      .to.be.reverted;
+
+    await expect(loanPool.connect(lender).approveMortgage(mortgageAddr))
+      .to.be.reverted;
+
+    await expect(loanPool.connect(owner).approveMortgage(mortgageAddr))
+      .to.be.ok;
+  })
 });

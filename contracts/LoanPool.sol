@@ -8,13 +8,15 @@ contract LoanPool {
 
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    address owner;
+
     EnumerableSet.AddressSet private lenders;
 
     mapping (address => uint) lenderContributions;
 
     // TODO(P3): This could instead be implemented as a getter that iterates
     // over lenderContributions using keys from lenders, and that would only be
-    // a call, not a transaction, so cost is not a concern.
+    // a call, not a transaction, so gas cost is not a concern.
     uint public totalContributions;
 
     uint public totalLent;
@@ -27,6 +29,7 @@ contract LoanPool {
     event NewMortgageApplication(Mortgage);
 
     constructor() {
+        owner = msg.sender;
         totalContributions = 0;
         totalLent = 0;
     }
@@ -70,5 +73,9 @@ contract LoanPool {
         emit NewMortgageApplication(m);
 
         return m;
+    }
+
+    function approveMortgage(address mortgageAddress) external {
+        require(msg.sender == owner, 'Owner only');
     }
 }
