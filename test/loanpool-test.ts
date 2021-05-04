@@ -14,6 +14,7 @@ describe('LoanPool', function() {
   // Amounts
   const contribAmount = ethers.utils.parseEther('9');
   const loanAmount = ethers.utils.parseEther('7');
+  const depositAmount = ethers.utils.parseEther('2');
 
   before(async () => {
     [owner, lender, borrower] = await ethers.getSigners();
@@ -44,7 +45,7 @@ describe('LoanPool', function() {
 
     // Borrowers apply for mortgages
     loanPool = loanPool.connect(borrower);
-    const tx = await loanPool.applyForMortgage(loanAmount);
+    const tx = await loanPool.applyForMortgage(depositAmount, loanAmount);
     expect(tx).to.not.be.null;
     // console.log("tx: ", tx);
 
@@ -68,7 +69,7 @@ describe('LoanPool', function() {
   it('Should allow only the owner to approve applied mortgages',
     async () => {
     const applyTx = await loanPool.connect(borrower)
-      .applyForMortgage(loanAmount);
+      .applyForMortgage(depositAmount, loanAmount);
 
     let applyReceipt: ContractReceipt = await applyTx.wait();
     const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
@@ -93,5 +94,27 @@ describe('LoanPool', function() {
 
     // 1: State.Approved
     expect(await mortgage.state()).equals(1);
-  })
+  });
+
+  it('Borrower of approved mortgage can send deposit',
+    async () => {
+      // Apply
+      let applyReceipt: ContractReceipt = await (
+        await loanPool.connect(borrower)
+        .applyForMortgage(depositAmount, loanAmount)).wait();
+      const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
+
+      // Approve
+      await loanPool.connect(owner).approveMortgage(mortgageAddr);
+
+      // Pay deposit
+      const Mortgage = await ethers.getContractFactory('Mortgage');
+      const mortgage = await Mortgage.attach(mortgageAddr);
+      const tx = await borrower.sendTransaction({to: mortgage.address,
+        value: depositAmount});
+      expect(tx).to.not.be.null;
+
+      // 2: State.DepositReceived
+      expect(await mortgage.state()).equals(2);
+    })
 });

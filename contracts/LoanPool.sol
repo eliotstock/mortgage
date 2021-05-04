@@ -25,7 +25,7 @@ contract LoanPool {
     // borrowers.
     // uint8 constant EXCESS_FUNDS_PERCENT_LIMIT = 110;
 
-    event ReceivedFunds(address, uint);
+    event LoanPoolReceivedFunds(address, uint);
     event NewMortgageApplication(Mortgage);
     event MortgageApproved(Mortgage);
 
@@ -38,7 +38,7 @@ contract LoanPool {
     // Both lenders and mortgage contracts can send ETH here by calling send()
     // or transfer(). Borrowers should not call this contract.
     receive() external payable {
-        emit ReceivedFunds(msg.sender, msg.value);
+        emit LoanPoolReceivedFunds(msg.sender, msg.value);
 
         // TODO(P1): Look up the sender and figure out whether they're a
         // lender, a mortgage contract or neither. For now, assume they're a
@@ -65,9 +65,10 @@ contract LoanPool {
     // creditworthiness and affordability of the loan will rely on the
     // applicant signing messages with their private key from the public ETH
     // address from which they call this method.
-    function applyForMortgage(uint loanAmount) external
+    function applyForMortgage(uint depositAmount, uint loanAmount) external
         returns (Mortgage mortgageAddress) {
-        Mortgage m = new Mortgage(msg.sender, loanAmount);
+        Mortgage m = new Mortgage(address(this), msg.sender, depositAmount,
+                loanAmount);
 
         // The JS tests rely on this event in order to get the Mortgage
         // instance.
@@ -79,7 +80,7 @@ contract LoanPool {
     function approveMortgage(address mortgageAddress) external {
         require(msg.sender == owner, 'Owner only');
         
-        Mortgage m = Mortgage(address(mortgageAddress));
+        Mortgage m = Mortgage(payable(address(mortgageAddress)));
         m.approve();
 
         emit MortgageApproved(m);
