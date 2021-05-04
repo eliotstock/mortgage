@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
+import "./LoanPool.sol";
+
 contract Mortgage {
 
     enum State {
@@ -53,6 +55,9 @@ contract Mortgage {
             // they have the right address with a small amount first.
             require(msg.value >= depositAmount, 'Insufficent deposit');
             state = State.DepositReceived;
+
+            LoanPool l = LoanPool(payable(address(loanPool)));
+            l.notifyDepositReceived();
         }
         else if (state == State.DepositReceived && msg.sender == loanPool) {
             // This must be the balance for the property vendor.

@@ -139,4 +139,25 @@ describe('LoanPool', function() {
       // 1: State.Approved
       expect(await mortgage.state()).equals(1);
     });
+
+    it('Once deposit sent, mortgage is funded from loan pool',
+    async () => {
+      // Apply
+      let applyReceipt: ContractReceipt = await (
+        await loanPool.connect(borrower)
+        .applyForMortgage(depositAmount, loanAmount)).wait();
+      const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
+
+      // Approve
+      await loanPool.connect(owner).approveMortgage(mortgageAddr);
+
+      // Pay deposit
+      const Mortgage = await ethers.getContractFactory('Mortgage');
+      const mortgage = await Mortgage.attach(mortgageAddr);
+      const tx = await borrower.sendTransaction({to: mortgage.address,
+        value: depositAmount});
+
+      // Balance has moved from loan pool to mortgage contract.
+      expect(await loanPool.totalLent()).to.equal(loanAmount);
+    })
 });

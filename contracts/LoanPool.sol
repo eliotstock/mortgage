@@ -14,6 +14,8 @@ contract LoanPool {
 
     mapping (address => uint) lenderContributions;
 
+    EnumerableSet.AddressSet private mortgages;
+
     // TODO(P3): This could instead be implemented as a getter that iterates
     // over lenderContributions using keys from lenders, and that would only be
     // a call, not a transaction, so gas cost is not a concern.
@@ -69,6 +71,7 @@ contract LoanPool {
         returns (Mortgage mortgageAddress) {
         Mortgage m = new Mortgage(address(this), msg.sender, depositAmount,
                 loanAmount);
+        mortgages.add(address(m));
 
         // The JS tests rely on this event in order to get the Mortgage
         // instance.
@@ -84,5 +87,13 @@ contract LoanPool {
         m.approve();
 
         emit MortgageApproved(m);
+    }
+
+    function notifyDepositReceived() external {
+        require(mortgages.contains(msg.sender));
+
+        // TODO(P1): Send the loan amount to the mortgage contract.
+        // TODO(P1): This will require Mortgage.receive() to be re-entrant,
+        // which smells bad.
     }
 }
