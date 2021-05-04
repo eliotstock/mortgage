@@ -98,7 +98,8 @@ describe('LoanPool', function() {
     expect(await mortgage.state()).equals(1);
   });
 
-  it('Borrower of approved mortgage can send deposit',
+  it('Borrower of approved mortgage can send deposit, mortgage is funded and'
+    + ' vendor is paid',
     async () => {
       // Apply
       let applyReceipt: ContractReceipt = await (
@@ -112,12 +113,17 @@ describe('LoanPool', function() {
       // Pay deposit
       const Mortgage = await ethers.getContractFactory('Mortgage');
       const mortgage = await Mortgage.attach(mortgageAddr);
-      const tx = await borrower.sendTransaction({to: mortgage.address,
-        value: depositAmount});
+      const tx = await mortgage.connect(borrower)
+        .sendDeposit({value: depositAmount});
       expect(tx).to.not.be.null;
 
       // 2: State.DepositReceived
       expect(await mortgage.state()).equals(2);
+
+      // Balance has moved from loan pool to mortgage contract.
+      expect(await loanPool.totalLent()).to.equal(loanAmount);
+
+      // TODO(P1): Check that vendor is paid.
     });
 
     it('Borrower of approved mortgage must send whole deposit',
@@ -134,32 +140,10 @@ describe('LoanPool', function() {
       // Pay only part of the deposit
       const Mortgage = await ethers.getContractFactory('Mortgage');
       const mortgage = await Mortgage.attach(mortgageAddr);
-      await expect(borrower.sendTransaction({to: mortgage.address,
-        value: insufficientDepositAmount})).to.be.reverted;
+      await expect(mortgage.sendDeposit({value: insufficientDepositAmount}))
+        .to.be.reverted;
 
       // 1: State.Approved
       expect(await mortgage.state()).equals(1);
     });
-
-    it('Once deposit sent, mortgage is funded from loan pool',
-    async () => {
-      // Apply
-      let applyReceipt: ContractReceipt = await (
-        await loanPool.connect(borrower)
-        .applyForMortgage(depositAmount, loanAmount)).wait();
-      const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
-
-      // Approve
-      await loanPool.connect(owner).approveMortgage(mortgageAddr);
-
-      // Pay deposit
-      // TODO(P1): This needs more gas.
-      const Mortgage = await ethers.getContractFactory('Mortgage');
-      const mortgage = await Mortgage.attach(mortgageAddr);
-      const tx = await borrower.sendTransaction({to: mortgage.address,
-        value: depositAmount, gasLimit: 12_450_000});
-
-      // Balance has moved from loan pool to mortgage contract.
-      expect(await loanPool.totalLent()).to.equal(loanAmount);
-    })
 });

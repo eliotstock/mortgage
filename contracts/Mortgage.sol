@@ -21,7 +21,9 @@ contract Mortgage {
     uint public loanAmount;
     State public state;
 
-    event MortgageReceivedFunds(address, uint);
+    event MortgageReceivedDeposit(address, uint);
+    event MortgageReceivedFunding(address, uint);
+    event MortgageReceivedRepayment(address, uint);
 
     constructor(address _loanPool, address _borrower, uint _depositAmount,
             uint _loanAmount) {
@@ -36,46 +38,50 @@ contract Mortgage {
         state = State.Approved;
     }
 
-    // Both borrowers and the loan pool can send ETH here by calling send()
-    // or transfer(). Lenders should not call this contract.
-    receive() external payable {
-        emit MortgageReceivedFunds(msg.sender, msg.value);
+    function sendDeposit() external payable {
+        emit MortgageReceivedDeposit(msg.sender, msg.value);
 
-        // We only accept payments from the loan pool and the borrower.
-        require(msg.sender == loanPool || msg.sender == borrower);
+        require(msg.sender == borrower, 'Borrower only');
 
-        if (state == State.Approved && msg.sender == borrower) {
-            // This must be the deposit.
+        require(state == State.Approved, 'Mortgage not in Approved state');
 
-            // Check the amount is greater than or equal to the required
-            // deposit.
-            
-            // TODO(P3): We don't support paying the deposit in multiple
-            // transactions yet, but we should so that a borrower can test
-            // they have the right address with a small amount first.
-            require(msg.value >= depositAmount, 'Insufficent deposit');
-            state = State.DepositReceived;
+        // Check the amount is greater than or equal to the required
+        // deposit.
+        
+        // TODO(P3): We don't support paying the deposit in multiple
+        // transactions yet, but we should so that a borrower can test
+        // they have the right address with a small amount first.
+        require(msg.value >= depositAmount, 'Insufficent deposit');
 
-            LoanPool l = LoanPool(payable(address(loanPool)));
+        state = State.DepositReceived;
 
-            // TODO(P1): This will call back to receive(), which requires us to
-            // be re-entrant, which smells bad.
-            l.notifyDepositReceived();
-        }
-        else if (state == State.DepositReceived && msg.sender == loanPool) {
-            // This must be the balance for the property vendor.
+        LoanPool l = LoanPool(payable(address(loanPool)));
 
-            // TODO(P1): Send the deposit plus the loan amount on to the
-            // vendor, reducing our balance to zero.
-        }
-        else if (state == State.InGoodStanding && msg.sender == borrower) {
-            // This must be a regular repayment.
+        // This will call back to sendFunding().
+        l.notifyDepositReceived();
+    }
 
-            // TODO(P1): Pass this on to the loan pool in full.
-        }
-        else {
-            revert('Funds from this sender not accepted while in this state');
-        }
+    function sendFunding() external payable {
+        emit MortgageReceivedFunding(msg.sender, msg.value);
+
+        require(msg.sender == loanPool, 'Loan pool only');
+
+        require(state == State.DepositReceived,
+            'Mortgage not in DepositReceived state');
+
+        // TODO(P1): Send the deposit plus the loan amount on to the
+        // vendor, reducing our balance to zero.
+    }
+
+    function sendRepayment() external payable {
+        emit MortgageReceivedRepayment(msg.sender, msg.value);
+
+        require(msg.sender == borrower, 'Borrower only');
+
+        require(state == State.InGoodStanding || state == State.InArrears
+            || state == State.InForeclosure, 'Wrong state');
+
+        // TODO(P1): Send the repayment on to the loan pool in full.
     }
 
 }

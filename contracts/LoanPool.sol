@@ -23,10 +23,6 @@ contract LoanPool {
 
     uint public totalLent;
 
-    // TODO(P3): Don't accept more funds that we can reasonably lend out to
-    // borrowers.
-    // uint8 constant EXCESS_FUNDS_PERCENT_LIMIT = 110;
-
     event LoanPoolReceivedFunds(address, uint);
     event NewMortgageApplication(Mortgage);
     event MortgageApproved(Mortgage);
@@ -93,9 +89,7 @@ contract LoanPool {
         require(mortgages.contains(msg.sender));
 
         // Send the loan amount to the mortgage contract.
-        // TODO(P1): This requires Mortgage.receive() to be re-entrant, which
-        // smells bad.
         Mortgage m = Mortgage(payable(address(msg.sender)));
-        (payable(address(m))).transfer(m.loanAmount());
+        m.sendFunding{value: m.loanAmount()}();
     }
 }
