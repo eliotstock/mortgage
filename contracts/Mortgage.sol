@@ -47,6 +47,10 @@ contract Mortgage {
 
             // Check the amount is greater than or equal to the required
             // deposit.
+            
+            // TODO(P3): We don't support paying the deposit in multiple
+            // transactions yet, but we should so that a borrower can test
+            // they have the right address with a small amount first.
             require(msg.value >= depositAmount, 'Insufficent deposit');
             state = State.DepositReceived;
         }

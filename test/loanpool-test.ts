@@ -15,6 +15,7 @@ describe('LoanPool', function() {
   const contribAmount = ethers.utils.parseEther('9');
   const loanAmount = ethers.utils.parseEther('7');
   const depositAmount = ethers.utils.parseEther('2');
+  const insufficientDepositAmount = ethers.utils.parseEther('1');
 
   before(async () => {
     [owner, lender, borrower] = await ethers.getSigners();
@@ -116,5 +117,26 @@ describe('LoanPool', function() {
 
       // 2: State.DepositReceived
       expect(await mortgage.state()).equals(2);
-    })
+    });
+
+    it('Borrower of approved mortgage must send whole deposit',
+    async () => {
+      // Apply
+      let applyReceipt: ContractReceipt = await (
+        await loanPool.connect(borrower)
+        .applyForMortgage(depositAmount, loanAmount)).wait();
+      const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
+
+      // Approve
+      await loanPool.connect(owner).approveMortgage(mortgageAddr);
+
+      // Pay only part of the deposit
+      const Mortgage = await ethers.getContractFactory('Mortgage');
+      const mortgage = await Mortgage.attach(mortgageAddr);
+      await expect(borrower.sendTransaction({to: mortgage.address,
+        value: insufficientDepositAmount})).to.be.reverted;
+
+      // 1: State.Approved
+      expect(await mortgage.state()).equals(1);
+    });
 });
