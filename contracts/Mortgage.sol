@@ -17,6 +17,7 @@ contract Mortgage {
 
     address public loanPool;
     address public borrower;
+    address public propertyVendor;
     uint public depositAmount;
     uint public loanAmount;
     State public state;
@@ -25,10 +26,11 @@ contract Mortgage {
     event MortgageReceivedFunding(address, uint);
     event MortgageReceivedRepayment(address, uint);
 
-    constructor(address _loanPool, address _borrower, uint _depositAmount,
-            uint _loanAmount) {
+    constructor(address _loanPool, address _borrower, address _propertyVendor,
+            uint _depositAmount, uint _loanAmount) {
         loanPool = _loanPool;
         borrower = _borrower;
+        propertyVendor = _propertyVendor;
         depositAmount = _depositAmount;
         loanAmount = _loanAmount;
         state = State.Applied;
@@ -68,9 +70,16 @@ contract Mortgage {
 
         require(state == State.DepositReceived,
             'Mortgage not in DepositReceived state');
+        
+        uint amount = msg.value + depositAmount;
 
-        // TODO(P1): Send the deposit plus the loan amount on to the
-        // vendor, reducing our balance to zero.
+        // Learning note: I'm surprised this works. We're able to send funds on
+        // before the execution of the receiving function completes.
+        bool ok = payable(propertyVendor).send(amount);
+
+        if (!ok) {
+            revert('Unable to forward funds to vendor');
+        }
     }
 
     function sendRepayment() external payable {

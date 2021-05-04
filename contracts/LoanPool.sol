@@ -63,10 +63,11 @@ contract LoanPool {
     // creditworthiness and affordability of the loan will rely on the
     // applicant signing messages with their private key from the public ETH
     // address from which they call this method.
-    function applyForMortgage(uint depositAmount, uint loanAmount) external
+    function applyForMortgage(uint depositAmount, uint loanAmount,
+            address propertyVendor) external
         returns (Mortgage mortgageAddress) {
-        Mortgage m = new Mortgage(address(this), msg.sender, depositAmount,
-                loanAmount);
+        Mortgage m = new Mortgage(address(this), msg.sender, propertyVendor,
+                depositAmount, loanAmount);
         mortgages.add(address(m));
 
         // The JS tests rely on this event in order to get the Mortgage
@@ -91,5 +92,6 @@ contract LoanPool {
         // Send the loan amount to the mortgage contract.
         Mortgage m = Mortgage(payable(address(msg.sender)));
         m.sendFunding{value: m.loanAmount()}();
+        totalLent += m.loanAmount();
     }
 }

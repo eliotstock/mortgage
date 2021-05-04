@@ -6,20 +6,22 @@ describe('LoanPool', function() {
   // LoanPool contract
   let loanPool: Contract;
 
-  // Accounts
+  // EOAs
   let owner: Signer;
   let lender: Signer;
   let borrower: Signer;
+  let propertyVendor: Signer;
 
   // Amounts
   const contribAmount = ethers.utils.parseEther('9');
+  const propertyValue = ethers.utils.parseEther('9');
   const loanAmount = ethers.utils.parseEther('7');
   const depositAmount = ethers.utils.parseEther('2');
   const insufficientDepositAmount = ethers.utils.parseEther('1');
   const highGasLimit = ethers.utils.parseUnits('500', 'gwei');
 
   before(async () => {
-    [owner, lender, borrower] = await ethers.getSigners();
+    [owner, lender, borrower, propertyVendor] = await ethers.getSigners();
 
     const LoanPool = await ethers.getContractFactory('LoanPool');
     loanPool = await LoanPool.deploy();
@@ -40,29 +42,18 @@ describe('LoanPool', function() {
 
   it('Should create a new mortgage contract when a borrower applies',
     async () => {
-    // Event not fired:
-    // loanPool.on('NewMortgageApplication', () => {
-    //   console.log('NewMortgageApplication event');
-    // });
-
     // Borrowers apply for mortgages
     loanPool = loanPool.connect(borrower);
-    const tx = await loanPool.applyForMortgage(depositAmount, loanAmount);
+    const tx = await loanPool.applyForMortgage(depositAmount, loanAmount,
+      propertyVendor.getAddress());
     expect(tx).to.not.be.null;
-    // console.log("tx: ", tx);
 
     // Wait for the next block with the transaction in it.
     let receipt: ContractReceipt = await tx.wait();
-    // console.log(receipt);
-    // console.log(receipt.events?.filter((x) => {return x.event == 'NewMortgageApplication'}));
-    // console.log("tx: ", tx);
     const mortgageAddr = receipt.events?.[0]?.args?.[0];
-    // console.log('mortgageAddr: ', mortgageAddr);
 
     const Mortgage = await ethers.getContractFactory('Mortgage');
     const mortgage = await Mortgage.attach(mortgageAddr);
-    // console.log('mortgage: ', mortgage);
-    // console.log('mortgage state: ', await mortgage.state());
 
     // 0: State.Applied
     expect(await mortgage.state()).equals(0);
@@ -71,7 +62,8 @@ describe('LoanPool', function() {
   it('Should allow only the owner to approve applied mortgages',
     async () => {
     const applyTx = await loanPool.connect(borrower)
-      .applyForMortgage(depositAmount, loanAmount);
+      .applyForMortgage(depositAmount, loanAmount,
+      propertyVendor.getAddress());
 
     let applyReceipt: ContractReceipt = await applyTx.wait();
     const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
@@ -104,11 +96,15 @@ describe('LoanPool', function() {
       // Apply
       let applyReceipt: ContractReceipt = await (
         await loanPool.connect(borrower)
-        .applyForMortgage(depositAmount, loanAmount)).wait();
+        .applyForMortgage(depositAmount, loanAmount,
+        propertyVendor.getAddress())).wait();
       const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
 
       // Approve
       await loanPool.connect(owner).approveMortgage(mortgageAddr);
+
+      // Check vendor balance before mortgage funded
+      const vendorBalanceBefore = await propertyVendor.getBalance();
 
       // Pay deposit
       const Mortgage = await ethers.getContractFactory('Mortgage');
@@ -123,7 +119,10 @@ describe('LoanPool', function() {
       // Balance has moved from loan pool to mortgage contract.
       expect(await loanPool.totalLent()).to.equal(loanAmount);
 
-      // TODO(P1): Check that vendor is paid.
+      // Property vendor has been paid.
+      const vendorBalanceAfter = await propertyVendor.getBalance();
+      const delta = (vendorBalanceAfter).sub(vendorBalanceBefore);
+      expect(delta).to.equal(propertyValue);
     });
 
     it('Borrower of approved mortgage must send whole deposit',
@@ -131,7 +130,8 @@ describe('LoanPool', function() {
       // Apply
       let applyReceipt: ContractReceipt = await (
         await loanPool.connect(borrower)
-        .applyForMortgage(depositAmount, loanAmount)).wait();
+        .applyForMortgage(depositAmount, loanAmount,
+        propertyVendor.getAddress())).wait();
       const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
 
       // Approve
