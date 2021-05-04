@@ -57,13 +57,24 @@ contract Mortgage {
             state = State.DepositReceived;
 
             LoanPool l = LoanPool(payable(address(loanPool)));
+
+            // TODO(P1): This will call back to receive(), which requires us to
+            // be re-entrant, which smells bad.
             l.notifyDepositReceived();
         }
         else if (state == State.DepositReceived && msg.sender == loanPool) {
             // This must be the balance for the property vendor.
+
+            // TODO(P1): Send the deposit plus the loan amount on to the
+            // vendor, reducing our balance to zero.
         }
         else if (state == State.InGoodStanding && msg.sender == borrower) {
             // This must be a regular repayment.
+
+            // TODO(P1): Pass this on to the loan pool in full.
+        }
+        else {
+            revert('Funds from this sender not accepted while in this state');
         }
     }
 

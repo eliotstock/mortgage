@@ -92,8 +92,10 @@ contract LoanPool {
     function notifyDepositReceived() external {
         require(mortgages.contains(msg.sender));
 
-        // TODO(P1): Send the loan amount to the mortgage contract.
-        // TODO(P1): This will require Mortgage.receive() to be re-entrant,
-        // which smells bad.
+        // Send the loan amount to the mortgage contract.
+        // TODO(P1): This requires Mortgage.receive() to be re-entrant, which
+        // smells bad.
+        Mortgage m = Mortgage(payable(address(msg.sender)));
+        (payable(address(m))).transfer(m.loanAmount());
     }
 }

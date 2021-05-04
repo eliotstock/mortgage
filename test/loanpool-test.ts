@@ -16,6 +16,7 @@ describe('LoanPool', function() {
   const loanAmount = ethers.utils.parseEther('7');
   const depositAmount = ethers.utils.parseEther('2');
   const insufficientDepositAmount = ethers.utils.parseEther('1');
+  const highGasLimit = ethers.utils.parseUnits('500', 'gwei');
 
   before(async () => {
     [owner, lender, borrower] = await ethers.getSigners();
@@ -152,10 +153,11 @@ describe('LoanPool', function() {
       await loanPool.connect(owner).approveMortgage(mortgageAddr);
 
       // Pay deposit
+      // TODO(P1): This needs more gas.
       const Mortgage = await ethers.getContractFactory('Mortgage');
       const mortgage = await Mortgage.attach(mortgageAddr);
       const tx = await borrower.sendTransaction({to: mortgage.address,
-        value: depositAmount});
+        value: depositAmount, gasLimit: 12_450_000});
 
       // Balance has moved from loan pool to mortgage contract.
       expect(await loanPool.totalLent()).to.equal(loanAmount);
