@@ -30,14 +30,14 @@ describe('LoanPool', function() {
   });
 
   it('Should allow a lender to add some funds to the loan pool', async () => {
-    expect(await loanPool.totalLent()).to.equal(0);
-    expect(await loanPool.totalContributions()).to.equal(0);
+    expect(await loanPool.getTotalLent()).to.equal(0);
+    expect(await loanPool.getTotalContributions()).to.equal(0);
 
     const tx = await lender.sendTransaction({to: loanPool.address,
         value: contribAmount});
     expect(tx).to.not.be.null;
 
-    expect(await loanPool.totalContributions()).to.equal(contribAmount);
+    expect(await loanPool.getTotalContributions()).to.equal(contribAmount);
   });
 
   it('Should create a new mortgage contract when a borrower applies',
@@ -56,8 +56,21 @@ describe('LoanPool', function() {
     const mortgage = await Mortgage.attach(mortgageAddr);
 
     // 0: State.Applied
-    expect(await mortgage.state()).equals(0);
+    expect(await mortgage.getState()).equals(0);
   });
+
+  // it('Should treat mortgages as mostly immutable', async () => {
+  //   // Apply
+  //   let applyReceipt: ContractReceipt = await (
+  //     await loanPool.connect(borrower)
+  //     .applyForMortgage(depositAmount, loanAmount,
+  //     propertyVendor.getAddress())).wait();
+  //   const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
+  //   const Mortgage = await ethers.getContractFactory('Mortgage');
+  //   const mortgage = await Mortgage.attach(mortgageAddr);
+
+  //   (await mortgage.connect(borrower)).loanPool().call(borrower);
+  // });
 
   it('Should allow only the owner to approve applied mortgages',
     async () => {
@@ -87,7 +100,7 @@ describe('LoanPool', function() {
     const mortgage = await Mortgage.attach(mortgageAddr);
 
     // 1: State.Approved
-    expect(await mortgage.state()).equals(1);
+    expect(await mortgage.getState()).equals(1);
   });
 
   it('Borrower of approved mortgage can send deposit, mortgage is funded and'
@@ -114,10 +127,10 @@ describe('LoanPool', function() {
       expect(tx).to.not.be.null;
 
       // 2: State.DepositReceived
-      expect(await mortgage.state()).equals(2);
+      expect(await mortgage.getState()).equals(2);
 
       // Balance has moved from loan pool to mortgage contract.
-      expect(await loanPool.totalLent()).to.equal(loanAmount);
+      expect(await loanPool.getTotalLent()).to.equal(loanAmount);
 
       // Property vendor has been paid.
       const vendorBalanceAfter = await propertyVendor.getBalance();
@@ -144,6 +157,6 @@ describe('LoanPool', function() {
         .to.be.reverted;
 
       // 1: State.Approved
-      expect(await mortgage.state()).equals(1);
+      expect(await mortgage.getState()).equals(1);
     });
 });

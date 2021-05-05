@@ -15,12 +15,12 @@ contract Mortgage {
         BadDebt
     }
 
-    address public loanPool;
-    address public borrower;
-    address public propertyVendor;
-    uint public depositAmount;
-    uint public loanAmount;
-    State public state;
+    State private state;
+    address private loanPool;
+    address private borrower;
+    address private propertyVendor;
+    uint private depositAmount;
+    uint private loanAmount;
 
     event MortgageReceivedDeposit(address, uint);
     event MortgageReceivedFunding(address, uint);
@@ -36,13 +36,24 @@ contract Mortgage {
         state = State.Applied;
     }
 
+    function getState() public view returns (State s) {
+        return state;
+    }
+
+    function getLoanAmount() public view returns (uint a) {
+        return loanAmount;
+    }
+
     function approve() public {
+        require(msg.sender == loanPool, 'Loan pool only');
+
+        require(state == State.Applied, 'Wrong state');
+
+        // Effects.
         state = State.Approved;
     }
 
     function sendDeposit() external payable {
-        emit MortgageReceivedDeposit(msg.sender, msg.value);
-
         require(msg.sender == borrower, 'Borrower only');
 
         require(state == State.Approved, 'Mortgage not in Approved state');
@@ -55,26 +66,36 @@ contract Mortgage {
         // they have the right address with a small amount first.
         require(msg.value >= depositAmount, 'Insufficent deposit');
 
-        state = State.DepositReceived;
-
         LoanPool l = LoanPool(payable(address(loanPool)));
 
-        // This will call back to sendFunding().
+        // Effects.
+        emit MortgageReceivedDeposit(msg.sender, msg.value);
+        state = State.DepositReceived;
+
+        // Interactions. This will call back to sendFunding().
         l.notifyDepositReceived();
     }
 
     function sendFunding() external payable {
-        emit MortgageReceivedFunding(msg.sender, msg.value);
-
         require(msg.sender == loanPool, 'Loan pool only');
 
         require(state == State.DepositReceived,
             'Mortgage not in DepositReceived state');
+
+        require(msg.value == loanAmount, 'Funding not equal to loan amount');
         
+        // Effects.
         uint amount = msg.value + depositAmount;
+        emit MortgageReceivedFunding(msg.sender, msg.value);
+
+        // Interactions.
 
         // Learning note: I'm surprised this works. We're able to send funds on
         // before the execution of the receiving function completes.
+
+        // TODO(P2): Security note: consider using transfer() rather than send
+        // as a guard against a reentrancy bug. transfer() will only use
+        // limited gas. send() will take all it can.
         bool ok = payable(propertyVendor).send(amount);
 
         if (!ok) {
@@ -83,12 +104,15 @@ contract Mortgage {
     }
 
     function sendRepayment() external payable {
-        emit MortgageReceivedRepayment(msg.sender, msg.value);
-
         require(msg.sender == borrower, 'Borrower only');
 
         require(state == State.InGoodStanding || state == State.InArrears
             || state == State.InForeclosure, 'Wrong state');
+
+        // Effects.
+        emit MortgageReceivedRepayment(msg.sender, msg.value);
+
+        // Interactions.
 
         // TODO(P1): Send the repayment on to the loan pool in full.
     }

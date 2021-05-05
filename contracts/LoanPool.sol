@@ -8,20 +8,16 @@ contract LoanPool {
 
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    address owner;
-
+    address private owner;
     EnumerableSet.AddressSet private lenders;
-
-    mapping (address => uint) lenderContributions;
-
+    mapping (address => uint) private lenderContributions;
     EnumerableSet.AddressSet private mortgages;
 
     // TODO(P3): This could instead be implemented as a getter that iterates
     // over lenderContributions using keys from lenders, and that would only be
     // a call, not a transaction, so gas cost is not a concern.
-    uint public totalContributions;
-
-    uint public totalLent;
+    uint private totalContributions;
+    uint private totalLent;
 
     event LoanPoolReceivedFunds(address, uint);
     event NewMortgageApplication(Mortgage);
@@ -33,14 +29,22 @@ contract LoanPool {
         totalLent = 0;
     }
 
+    function getTotalLent() public view returns (uint l) {
+        return totalLent;
+    }
+
+    function getTotalContributions() public view returns (uint l) {
+        return totalContributions;
+    }
+
     // Both lenders and mortgage contracts can send ETH here by calling send()
     // or transfer(). Borrowers should not call this contract.
     receive() external payable {
-        emit LoanPoolReceivedFunds(msg.sender, msg.value);
+        require(!mortgages.contains(msg.sender),
+            'Mortgages should not send funds here');
 
-        // TODO(P1): Look up the sender and figure out whether they're a
-        // lender, a mortgage contract or neither. For now, assume they're a
-        // lender.
+        // TODO(P1): Don't have everyone send funds here. Split out separate
+        // payable functions for lender and mortgage contract.
 
         // TODO(P3): Don't accept more funds that we can reasonably lend out to
         // borrowers any time soon.
@@ -55,6 +59,8 @@ contract LoanPool {
         lenders.add(msg.sender);
         lenderContributions[msg.sender] += msg.value;
         totalContributions += msg.value;
+
+        emit LoanPoolReceivedFunds(msg.sender, msg.value);
     }
 
     // An applicant for a mortgage may apply by calling this function from
@@ -66,8 +72,12 @@ contract LoanPool {
     function applyForMortgage(uint depositAmount, uint loanAmount,
             address propertyVendor) external
         returns (Mortgage mortgageAddress) {
+        // TODO(P3): Can we require that the caller is an EOA and not a
+        // contract?
+        // TODO(P3): Can an existing lender also apply for a mortgage?
         Mortgage m = new Mortgage(address(this), msg.sender, propertyVendor,
-                depositAmount, loanAmount);
+            depositAmount, loanAmount);
+
         mortgages.add(address(m));
 
         // The JS tests rely on this event in order to get the Mortgage
@@ -91,7 +101,7 @@ contract LoanPool {
 
         // Send the loan amount to the mortgage contract.
         Mortgage m = Mortgage(payable(address(msg.sender)));
-        m.sendFunding{value: m.loanAmount()}();
-        totalLent += m.loanAmount();
+        m.sendFunding{value: m.getLoanAmount()}();
+        totalLent += m.getLoanAmount();
     }
 }
