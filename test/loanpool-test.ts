@@ -18,7 +18,8 @@ describe('LoanPool', function() {
   const loanAmount = ethers.utils.parseEther('7');
   const depositAmount = ethers.utils.parseEther('2');
   const insufficientDepositAmount = ethers.utils.parseEther('1');
-  const highGasLimit = ethers.utils.parseUnits('500', 'gwei');
+  const repaymentAmount = ethers.utils.parseEther('0.3');
+  const highGasLimit = ethers.utils.parseUnits('12450000');
 
   before(async () => {
     [owner, lender, borrower, propertyVendor] = await ethers.getSigners();
@@ -58,19 +59,6 @@ describe('LoanPool', function() {
     // 0: State.Applied
     expect(await mortgage.getState()).equals(0);
   });
-
-  // it('Should treat mortgages as mostly immutable', async () => {
-  //   // Apply
-  //   let applyReceipt: ContractReceipt = await (
-  //     await loanPool.connect(borrower)
-  //     .applyForMortgage(depositAmount, loanAmount,
-  //     propertyVendor.getAddress())).wait();
-  //   const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
-  //   const Mortgage = await ethers.getContractFactory('Mortgage');
-  //   const mortgage = await Mortgage.attach(mortgageAddr);
-
-  //   (await mortgage.connect(borrower)).loanPool().call(borrower);
-  // });
 
   it('Should allow only the owner to approve applied mortgages',
     async () => {
@@ -158,5 +146,40 @@ describe('LoanPool', function() {
 
       // 1: State.Approved
       expect(await mortgage.getState()).equals(1);
+    });
+
+    it('Repayments are passed on to the loan pool', async () => {
+      // Apply
+      let applyReceipt: ContractReceipt = await (
+        await loanPool.connect(borrower)
+        .applyForMortgage(depositAmount, loanAmount,
+        propertyVendor.getAddress())).wait();
+      const mortgageAddr = applyReceipt.events?.[0]?.args?.[0];
+
+      // Approve
+      await loanPool.connect(owner).approveMortgage(mortgageAddr);
+
+      // Pay deposit
+      const Mortgage = await ethers.getContractFactory('Mortgage');
+      const mortgage = await Mortgage.attach(mortgageAddr);
+
+      // TODO: Fix error:
+
+      // InvalidInputError: sender doesn't have enough funds to send tx. The
+      // upfront cost is: 99600000000000002000000000000000000 and the sender's
+      // account only has: 9997957221152000000000
+
+      // Cost:    99_600_000_000_000_002_000_000_000_000_000_000 (about 100 *
+      // 10^15 ETH) - why so high?
+      // Balance:                  9_997_957_221_152_000_000_000 (about 1K ETH)
+
+      // 2_000_000_000_000_000_000 (2 ETH)
+      console.log('depositAmount: ', depositAmount.toString());
+
+      const tx = await mortgage.connect(borrower)
+        .sendDeposit({value: depositAmount, gasLimit: highGasLimit});
+
+      // Make the first repayment
+      // mortgage.sendRepayment({value: repaymentAmount});
     });
 });

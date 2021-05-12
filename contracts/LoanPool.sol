@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./Mortgage.sol";
+import "hardhat/console.sol";
 
 contract LoanPool {
 
@@ -101,6 +102,9 @@ contract LoanPool {
 
         // Send the loan amount to the mortgage contract.
         Mortgage m = Mortgage(payable(address(msg.sender)));
+
+        console.log("m.getLoanAmount():", m.getLoanAmount());
+
         m.sendFunding{value: m.getLoanAmount()}();
         totalLent += m.getLoanAmount();
     }
